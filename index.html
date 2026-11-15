@@ -355,23 +355,23 @@ function renderSugg() {
   const list = edit && edit.catId ? suggestions(edit.catId) : [];
   box.innerHTML = list.map(s => `<span class="chip" data-act="sugg" data-v="${esc(s)}">${esc(s)}</span>`).join('');
 }
+/* 지출 입력 순서: 날짜 → 항목 → 내용 → 금액 */
 function openExpense(id) {
   if (!state.categories.length) { alert('설정에서 항목을 먼저 만들어 주세요.'); return; }
   const e = id ? state.expenses.find(x => x.id === id) : null;
   edit = { kind: 'expense', id: e ? e.id : null, catId: e ? e.catId : lastCatId() };
   openSheet(e ? '지출 수정' : '지출 추가', `
-    <label class="lbl">금액</label>
-    <div class="amount"><input id="fAmount" class="money" inputmode="numeric" autocomplete="off" placeholder="0" value="${e ? e.amount.toLocaleString('ko-KR') : ''}"><span class="sub">원</span></div>
+    <label class="lbl">날짜</label>
+    <input id="fDate" class="text" type="date" value="${e ? e.date : today()}">
     <label class="lbl">항목</label>
     <div class="chips wrap" id="fCats">${state.categories.map(c => `<span class="chip ${c.id === edit.catId ? 'on' : ''}" data-act="pickCat" data-id="${c.id}">${esc(c.name)}</span>`).join('')}</div>
     <label class="lbl">내용</label>
-    <input id="fMemo" class="text" placeholder="예: 점심, 편의점" enterkeyhint="done" autocomplete="off" value="${e ? esc(e.memo) : ''}">
+    <input id="fMemo" class="text" placeholder="예: 점심, 편의점" enterkeyhint="next" autocomplete="off" value="${e ? esc(e.memo) : ''}">
     <div class="chips" id="fSugg" style="margin-top:8px"></div>
-    <label class="lbl">날짜</label>
-    <input id="fDate" class="text" type="date" value="${e ? e.date : today()}">
+    <label class="lbl">금액</label>
+    <div class="amount"><input id="fAmount" class="money" inputmode="numeric" enterkeyhint="done" autocomplete="off" placeholder="0" value="${e ? e.amount.toLocaleString('ko-KR') : ''}"><span class="sub">원</span></div>
     ${e ? '<button class="danger-btn" data-act="delExp">이 내역 삭제</button>' : ''}`);
   renderSugg();
-  if (!e) $('#fAmount').focus();
 }
 function openBudget(id) {
   const c = state.categories.find(x => x.id === id); if (!c) return;
@@ -393,8 +393,8 @@ function sheetSave() {
   if (!edit) return;
   if (edit.kind === 'expense') {
     const amount = toInt($('#fAmount').value);
-    if (!amount) { alert('금액을 입력해 주세요.'); return; }
     if (!edit.catId) { alert('항목을 골라 주세요.'); return; }
+    if (!amount) { alert('금액을 입력해 주세요.'); return; }
     const data = { amount, catId: edit.catId, memo: $('#fMemo').value.trim(), date: $('#fDate').value || today() };
     if (edit.id) { const t = state.expenses.find(x => x.id === edit.id); if (t) Object.assign(t, data); }
     else state.expenses.push({ id: uid(), created: Date.now(), ...data });
@@ -547,7 +547,7 @@ document.addEventListener('click', ev => {
       edit.catId = id;
       document.querySelectorAll('#fCats .chip').forEach(c => c.classList.toggle('on', c.dataset.id === id));
       renderSugg(); break;
-    case 'sugg': $('#fMemo').value = el.dataset.v; break;
+    case 'sugg': $('#fMemo').value = el.dataset.v; $('#fAmount').focus(); break;
     case 'close': closeSheet(); break;
     case 'sheetSave': sheetSave(); break;
     case 'delExp':
@@ -594,7 +594,9 @@ document.addEventListener('change', ev => {
 });
 document.addEventListener('keydown', ev => {
   if (ev.key !== 'Enter' || ev.isComposing || ev.target.tagName !== 'INPUT') return;
-  if (ev.target.id === 'newCat') addCategory(); else ev.target.blur();
+  if (ev.target.id === 'newCat') addCategory();
+  else if (ev.target.id === 'fMemo') $('#fAmount').focus(); // 내용 다음은 금액
+  else ev.target.blur();
 });
 $('#overlay').addEventListener('click', ev => { if (ev.target.id === 'overlay') closeSheet(); });
 $('#fileInput').addEventListener('change', async ev => {
